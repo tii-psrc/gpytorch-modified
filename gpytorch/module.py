@@ -433,7 +433,7 @@ class Module(nn.Module):
 def _validate_module_outputs(outputs):
     if isinstance(outputs, tuple):
         if not all(
-            torch.is_tensor(output) or isinstance(output, Distribution) or isinstance(output, LinearOperator)
+            torch.is_tensor(output) or isinstance(output, Distribution) or isinstance(output, LinearOperator) or isinstance(output, list)
             for output in outputs
         ):
             raise RuntimeError(
