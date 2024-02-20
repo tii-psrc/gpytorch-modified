@@ -45,7 +45,7 @@ class _Likelihood(Module, ABC):
         self, observations: Tensor, function_dist: MultivariateNormal, *args: Any, **kwargs: Any
     ) -> Tensor:
         likelihood_samples = self._draw_likelihood_samples(function_dist, *args, **kwargs)
-        res = likelihood_samples.log_prob(observations, *args, **kwargs).mean(dim=0)
+        res = likelihood_samples.log_prob(observations).mean(dim=0)
         return res
 
     @abstractmethod
@@ -74,6 +74,13 @@ class _Likelihood(Module, ABC):
         # Marginal
         elif isinstance(input, MultivariateNormal):
             return self.marginal(input, *args, **kwargs)
+        # Marginal + Multi-Output
+        elif isinstance(input, tuple):
+            orig_out = self.marginal(input[0], *args, **kwargs)
+            sepr_out = []
+            for inpt in input[1]:
+                sepr_out.append(self.marginal(inpt, *args, **kwargs))
+            return orig_out, sepr_out
         # Error
         else:
             raise RuntimeError(
@@ -410,9 +417,7 @@ class _OneDimensionalLikelihood(Likelihood, ABC):
     def expected_log_prob(
         self, observations: Tensor, function_dist: MultivariateNormal, *args: Any, **kwargs: Any
     ) -> Tensor:
-        log_prob_lambda = lambda function_samples: self.forward(function_samples, *args, **kwargs).log_prob(
-            observations
-        )
+        log_prob_lambda = lambda function_samples: self.forward(function_samples).log_prob(observations)
         log_prob = self.quadrature(log_prob_lambda, function_dist)
         return log_prob
 
