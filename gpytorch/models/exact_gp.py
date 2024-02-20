@@ -288,7 +288,7 @@ class ExactGP(GP):
 
             # Get the terms that only depend on training data
             if self.prediction_strategy is None:
-                train_output = super().__call__(*train_inputs, **kwargs)
+                train_output, outputs = super().__call__(*train_inputs, **kwargs)
 
                 # Create the prediction strategy for
                 self.prediction_strategy = prediction_strategy(
@@ -313,11 +313,17 @@ class ExactGP(GP):
                 full_inputs.append(torch.cat([train_input, input], dim=-2))
 
             # Get the joint distribution for training/test data
-            full_output = super(ExactGP, self).__call__(*full_inputs, **kwargs)
+            full_output, outputs = super(ExactGP, self).__call__(*full_inputs, **kwargs)
             if settings.debug().on():
                 if not isinstance(full_output, MultivariateNormal):
                     raise RuntimeError("ExactGP.forward must return a MultivariateNormal")
             full_mean, full_covar = full_output.loc, full_output.lazy_covariance_matrix
+
+            full_means = []
+            full_covars = []
+            for out in outputs:
+                full_means.append(out.loc)
+                full_covars.append(out.lazy_covariance_matrix)
 
             # Determine the shape of the joint distribution
             batch_shape = full_output.batch_shape
@@ -325,6 +331,8 @@ class ExactGP(GP):
             tasks_shape = joint_shape[1:]  # For multitask learning
             test_shape = torch.Size([joint_shape[0] - self.prediction_strategy.train_shape[0], *tasks_shape])
 
+            predictive_means = []
+            predictive_covars = []
             # Make the prediction
             with settings.cg_tolerance(settings.eval_cg_tolerance.value()):
                 (
@@ -332,6 +340,32 @@ class ExactGP(GP):
                     predictive_covar,
                 ) = self.prediction_strategy.exact_prediction(full_mean, full_covar)
 
+                for idx in range(len(outputs)):
+                    (predictive_mean_x, predictive_covar_x) = self.prediction_strategy.exact_prediction(full_means[idx], full_covars[idx])
+                    predictive_means.append(predictive_mean_x)
+                    predictive_covars.append(predictive_covar_x)
+                # (
+                #     predictive_mean1,
+                #     predictive_covar1,
+                # ) = self.prediction_strategy.exact_prediction(full_mean1, full_covar1)
+                #
+                # (
+                #     predictive_mean2,
+                #     predictive_covar2,
+                # ) = self.prediction_strategy.exact_prediction(full_mean2, full_covar2)
+
             # Reshape predictive mean to match the appropriate event shape
             predictive_mean = predictive_mean.view(*batch_shape, *test_shape).contiguous()
-            return full_output.__class__(predictive_mean, predictive_covar)
+
+            return_outputs = []
+            for idx in range(len(outputs)):
+                predictive_means[idx] = predictive_means[idx].view(*batch_shape, *test_shape).contiguous()
+                return_outputs.append(outputs[idx].__class__(predictive_means[idx], predictive_covars[idx]))
+            # predictive_mean1 = predictive_mean1.view(*batch_shape, *test_shape).contiguous()
+            # predictive_mean2 = predictive_mean2.view(*batch_shape, *test_shape).contiguous()
+
+            # return ( full_output.__class__(predictive_mean, predictive_covar),
+            #         out1.__class__(predictive_mean1, predictive_covar1),
+            #         out2.__class__(predictive_mean2, predictive_covar2) )
+
+            return full_output.__class__(predictive_mean, predictive_covar), return_outputs
