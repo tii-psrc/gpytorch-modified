@@ -297,6 +297,14 @@ class ExactGP(GP):
                     train_labels=self.train_targets,
                     likelihood=self.likelihood,
                 )
+                self.prediction_strategies = []
+                for idx in range(len(outputs)):
+                    self.prediction_strategies.append(prediction_strategy(
+                        train_inputs=train_inputs,
+                        train_prior_dist=outputs[idx],
+                        train_labels=self.train_targets,
+                        likelihood=self.likelihood,
+                    ))
 
             # Concatenate the input to the training input
             full_inputs = []
@@ -341,7 +349,7 @@ class ExactGP(GP):
                 ) = self.prediction_strategy.exact_prediction(full_mean, full_covar)
 
                 for idx in range(len(outputs)):
-                    (predictive_mean_x, predictive_covar_x) = self.prediction_strategy.exact_prediction(full_means[idx], full_covars[idx])
+                    (predictive_mean_x, predictive_covar_x) = self.prediction_strategies[idx].exact_prediction(full_means[idx], full_covars[idx])
                     predictive_means.append(predictive_mean_x)
                     predictive_covars.append(predictive_covar_x)
                 # (
