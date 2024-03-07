@@ -374,9 +374,14 @@ class ExactGP(GP):
             predictive_mean = predictive_mean.view(*batch_shape, *test_shape).contiguous()
 
             return_outputs = []
-            for idx in range(len(outputs)):
+            for idx in range(len(outputs)): # correct posteriot covariance outputs
                 predictive_means[idx] = predictive_means[idx].view(*batch_shape, *test_shape).contiguous()
                 return_outputs.append(outputs[idx].__class__(predictive_means[idx], predictive_covars[idx]))
+
+            for idx in range(len(outputs)): # correct valued component outputs
+                predictive_means[idx+len(outputs)] = predictive_means[idx+len(outputs)].view(*batch_shape, *test_shape).contiguous()
+                return_outputs.append(outputs[idx].__class__(predictive_means[idx+len(outputs)], predictive_covars[idx+len(outputs)]))
+
             # predictive_mean1 = predictive_mean1.view(*batch_shape, *test_shape).contiguous()
             # predictive_mean2 = predictive_mean2.view(*batch_shape, *test_shape).contiguous()
 
