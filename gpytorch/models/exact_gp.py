@@ -348,10 +348,18 @@ class ExactGP(GP):
                     predictive_covar,
                 ) = self.prediction_strategy.exact_prediction(full_mean, full_covar)
 
+                # Each output has separate prediction strategy (for correct posterior covariance matrix that adds up to final)
                 for idx in range(len(outputs)):
                     (predictive_mean_x, predictive_covar_x) = self.prediction_strategies[idx].exact_prediction(full_means[idx], full_covars[idx])
                     predictive_means.append(predictive_mean_x)
                     predictive_covars.append(predictive_covar_x)
+
+                # Each output has same strategy as final (for correct component means that add up to final)
+                for idx in range(len(outputs)):
+                    (predictive_mean_x, predictive_covar_x) = self.prediction_strategy.exact_prediction(full_means[idx], full_covars[idx])
+                    predictive_means.append(predictive_mean_x)
+                    predictive_covars.append(predictive_covar_x)
+
                 # (
                 #     predictive_mean1,
                 #     predictive_covar1,
